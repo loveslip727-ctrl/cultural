@@ -1,10 +1,8 @@
-```html
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>영종복합문화센터 길찾기</title>
 
     <style>
@@ -13,270 +11,229 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            height: 100vh;
             margin: 0;
             background-color: #f4f4f4;
         }
 
         .message-box {
             background-color: white;
-            padding: 28px 22px;
-            border-radius: 14px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-            text-align: center;
-            width: 85%;
-            max-width: 360px;
-        }
-
-        h2 {
-            margin-top: 0;
-            font-size: 24px;
-        }
-
-        .destination {
-            font-size: 22px;
-            font-weight: bold;
-            margin: 15px 0 25px;
-        }
-
-        .info {
-            font-size: 15px;
-            color: #666;
-            margin-bottom: 20px;
-        }
-
-        button {
-            width: 100%;
-            border: none;
+            padding: 25px;
             border-radius: 10px;
-            padding: 16px 10px;
-            margin: 7px 0;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 320px;
         }
 
-        .kakao {
-            background-color: #FEE500;
-            color: #000;
+        h3 {
+            margin-top: 0;
         }
 
-        .naver {
-            background-color: #03C75A;
-            color: white;
-        }
-
-        .google {
-            background-color: #4285F4;
-            color: white;
+        .loading {
+            margin-top: 15px;
+            color: #666;
+            font-size: 14px;
         }
 
         .status {
-            margin-top: 18px;
-            font-size: 14px;
-            color: #777;
+            margin-top: 10px;
+            color: #888;
+            font-size: 12px;
         }
     </style>
 </head>
 
 <body>
 
-<div class="message-box">
+    <div class="message-box">
+        <h3>길찾기 안내</h3>
 
-    <h2>길찾기 안내</h2>
+        <p>
+            현재 위치를 확인하여<br>
+            <strong>영종복합문화센터</strong>로<br>
+            안내합니다.
+        </p>
 
-    <div class="destination">
-        영종복합문화센터
+        <p class="loading" id="loadingText">
+            현재 위치를 확인하고 있습니다...
+        </p>
+
+        <p style="font-size: 0.9em; color: #666;">
+            위치 정보 접근을 '허용'해 주세요.
+        </p>
+
+        <p class="status" id="statusText"></p>
     </div>
 
-    <div class="info">
-        아래에서 사용하실 지도를 선택하세요.
-    </div>
 
-    <!-- 카카오맵 -->
-    <button class="kakao" onclick="openKakao()">
-        카카오맵으로 길찾기
-    </button>
+    <script>
 
-    <!-- 네이버지도 -->
-    <button class="naver" onclick="openNaver()">
-        네이버지도로 길찾기
-    </button>
+        // ==========================================
+        // 목적지 : 영종복합문화센터
+        // ==========================================
 
-    <!-- Google 지도 -->
-    <button class="google" onclick="openGoogle()">
-        Google 지도로 길찾기
-    </button>
+        const destLat = 37.4805032;
+        const destLon = 126.5319946;
+        const destName = "영종복합문화센터";
 
-    <div class="status" id="status">
-        현재 위치를 사용하면 출발지로 설정됩니다.
-    </div>
-
-</div>
-
-
-<script>
-
-    // =====================================================
-    // 영종복합문화센터 목적지
-    // =====================================================
-
-    const destLat = 37.4805032;
-    const destLon = 126.5319946;
-    const destName = "영종복합문화센터";
-
-
-    // =====================================================
-    // 현재 위치 가져오기
-    // =====================================================
-
-    function getCurrentLocation(callback) {
-
-        if (!navigator.geolocation) {
-
-            alert("이 기기에서는 위치 정보를 사용할 수 없습니다.");
-            return;
-
+        function setStatus(msg) {
+            const el = document.getElementById("statusText");
+            if (el) el.textContent = msg;
         }
 
-        document.getElementById("status").innerText =
-            "현재 위치를 확인하고 있습니다...";
+        // 특정 URL(딥링크)을 열어보고, 지정한 시간 안에
+        // 페이지가 백그라운드로 전환(=앱이 열림)되지 않으면
+        // onFail 콜백을 실행하는 공통 함수
+        function tryOpenApp(appUrl, waitMs, onFail) {
 
+            let appOpened = false;
 
-        navigator.geolocation.getCurrentPosition(
-
-            function(position) {
-
-                const lat = position.coords.latitude;
-                const lon = position.coords.longitude;
-
-                callback(lat, lon);
-
-            },
-
-            function(error) {
-
-                let message =
-                    "현재 위치를 가져올 수 없습니다.\n\n";
-
-                if (error.code === 1) {
-                    message +=
-                        "위치 정보 사용을 허용해 주세요.";
+            const handleVisibilityChange = function() {
+                if (document.hidden) {
+                    appOpened = true;
                 }
-                else if (error.code === 2) {
-                    message +=
-                        "현재 위치를 확인할 수 없습니다.";
-                }
-                else if (error.code === 3) {
-                    message +=
-                        "위치 확인 시간이 초과되었습니다.";
-                }
-                else {
-                    message +=
-                        "잠시 후 다시 시도해 주세요.";
+            };
+
+            document.addEventListener("visibilitychange", handleVisibilityChange);
+
+            window.location.href = appUrl;
+
+            setTimeout(function() {
+
+                document.removeEventListener("visibilitychange", handleVisibilityChange);
+
+                if (!appOpened) {
+                    onFail();
                 }
 
-                alert(message);
+            }, waitMs);
+        }
 
-                document.getElementById("status").innerText =
-                    "위치 정보를 사용할 수 없습니다.";
+        // 카카오맵 설치 페이지로 이동 (기기별 스토어 분기)
+        function goToKakaoMapInstall() {
 
-            },
+            setStatus("설치된 지도 앱이 없어 카카오맵 설치 페이지로 이동합니다...");
 
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
+            const ua = navigator.userAgent || navigator.vendor || "";
+            const isIOS = /iPad|iPhone|iPod/.test(ua);
+
+            const androidUrl = "https://play.google.com/store/apps/details?id=net.daum.android.map";
+            const iosUrl = "https://apps.apple.com/app/id304608425";
+
+            setTimeout(function() {
+                window.location.href = isIOS ? iosUrl : androidUrl;
+            }, 800);
+        }
+
+        // 구글맵 앱 시도 → 실패 시 구글맵 웹으로 이동 (웹은 설치 없이도 항상 열리므로
+        // 여기서는 앱 우선 시도 후, 앱이 없으면 설치 안내로 넘어가지 않고
+        // 최종 수단으로 구글맵 웹 지도를 보여줌)
+        function tryGoogleMap(currentLat, currentLon) {
+
+            setStatus("구글맵 앱을 확인하고 있습니다...");
+
+            const googleAppUrl =
+                `comgooglemaps://?saddr=${currentLat},${currentLon}` +
+                `&daddr=${destLat},${destLon}` +
+                `&directionsmode=driving`;
+
+            tryOpenApp(googleAppUrl, 1500, function() {
+
+                // 카카오맵, 네이버맵, 구글맵 앱이 모두 없을 때 최종 안내
+                goToKakaoMapInstall();
+            });
+        }
+
+        // 네이버맵 앱 시도 → 실패 시 구글맵 단계로 이동
+        function tryNaverMap(currentLat, currentLon) {
+
+            setStatus("네이버맵 앱을 확인하고 있습니다...");
+
+            const naverAppUrl =
+                `nmap://route/car?slat=${currentLat}&slng=${currentLon}` +
+                `&sname=${encodeURIComponent("현재위치")}` +
+                `&dlat=${destLat}&dlng=${destLon}` +
+                `&dname=${encodeURIComponent(destName)}` +
+                `&appname=com.yeongjong.route`;
+
+            tryOpenApp(naverAppUrl, 1800, function() {
+                tryGoogleMap(currentLat, currentLon);
+            });
+        }
+
+        // 카카오맵 앱 시도 → 실패 시 네이버맵 단계로 이동
+        function tryKakaoMap(currentLat, currentLon) {
+
+            setStatus("카카오맵 앱을 확인하고 있습니다...");
+
+            const kakaoAppUrl =
+                `kakaomap://route?sp=${currentLat},${currentLon}` +
+                `&ep=${destLat},${destLon}` +
+                `&by=CAR`;
+
+            tryOpenApp(kakaoAppUrl, 1800, function() {
+                tryNaverMap(currentLat, currentLon);
+            });
+        }
+
+
+        function startRouting() {
+
+            if (!navigator.geolocation) {
+                alert("이 브라우저/기기에서는 위치 정보 기능을 지원하지 않습니다.");
+                return;
             }
 
-        );
+            navigator.geolocation.getCurrentPosition(
 
-    }
+                function(position) {
 
+                    const currentLat = position.coords.latitude;
+                    const currentLon = position.coords.longitude;
 
-    // =====================================================
-    // 카카오맵
-    // =====================================================
+                    // 카카오맵 → 네이버맵 → 구글맵(웹) 순서로 순차 시도
+                    tryKakaoMap(currentLat, currentLon);
 
-    function openKakao() {
+                },
 
-        getCurrentLocation(function(lat, lon) {
+                function(error) {
 
-            /*
-             * 카카오맵 공식 URL Scheme
-             *
-             * 앱이 설치되어 있으면 카카오맵 앱 실행
-             *
-             * kakaomap://route
-             */
+                    let message = "위치 정보를 가져올 수 없습니다.\n\n";
 
-            const kakaoUrl =
-                "kakaomap://route" +
-                "?sp=" + lat + "," + lon +
-                "&ep=" + destLat + "," + destLon +
-                "&by=car";
+                    switch(error.code) {
 
-            window.location.href = kakaoUrl;
+                        case error.PERMISSION_DENIED:
+                            message += "위치 정보 사용을 허용해 주세요.";
+                            break;
 
-        });
+                        case error.POSITION_UNAVAILABLE:
+                            message += "현재 위치를 확인할 수 없습니다.";
+                            break;
 
-    }
+                        case error.TIMEOUT:
+                            message += "위치 확인 시간이 초과되었습니다.";
+                            break;
 
+                        default:
+                            message += "잠시 후 다시 시도해 주세요.";
+                    }
 
-    // =====================================================
-    // 네이버지도
-    // =====================================================
+                    alert(message);
 
-    function openNaver() {
+                },
 
-        getCurrentLocation(function(lat, lon) {
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
 
-            /*
-             * 네이버지도는 복잡한 /directions/ URL을
-             * 직접 조합하지 않고,
-             * 네이버지도 검색 페이지를 사용합니다.
-             *
-             * 목적지를 검색한 뒤 사용자가
-             * 길찾기를 선택할 수 있습니다.
-             */
+            );
+        }
 
-            const naverUrl =
-                "https://map.naver.com/p/search/" +
-                encodeURIComponent(destName);
+        window.onload = startRouting;
 
-            window.location.href = naverUrl;
-
-        });
-
-    }
-
-
-    // =====================================================
-    // Google 지도
-    // =====================================================
-
-    function openGoogle() {
-
-        getCurrentLocation(function(lat, lon) {
-
-            /*
-             * Google Maps의 공식 웹 길찾기 URL
-             */
-
-            const googleUrl =
-                "https://www.google.com/maps/dir/" +
-                lat + "," + lon +
-                "/" +
-                destLat + "," + destLon;
-
-            window.location.href = googleUrl;
-
-        });
-
-    }
-
-</script>
+    </script>
 
 </body>
 </html>
-```
