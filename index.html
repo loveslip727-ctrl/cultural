@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>영종복합문화센터 길찾기</title>
+
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+
+        .message-box {
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 320px;
+        }
+
+        h3 {
+            margin-top: 0;
+        }
+
+        .loading {
+            margin-top: 15px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .status {
+            margin-top: 10px;
+            color: #888;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="message-box">
+        <h3>길찾기 안내</h3>
+
+        <p>
+            현재 위치를 확인하여<br>
+            <strong>영종복합문화센터</strong>로<br>
+            안내합니다.
+        </p>
+
+        <p class="loading" id="loadingText">
+            현재 위치를 확인하고 있습니다...
+        </p>
+
+        <p style="font-size: 0.9em; color: #666;">
+            위치 정보 접근을 '허용'해 주세요.
+        </p>
+
+        <p class="status" id="statusText"></p>
+    </div>
+
+
+    <script>
+
+        // ==========================================
+        // 목적지 : 영종복합문화센터
+        // ==========================================
+
+        const destLat = 37.4805032;
+        const destLon = 126.5319946;
+        const destName = "영종복합문화센터";
+
+        function setStatus(msg) {
+            const el = document.getElementById("statusText");
+            if (el) el.textContent = msg;
+        }
+
+        // 특정 URL(딥링크)을 열어보고, 지정한 시간 안에
+        // 페이지가 백그라운드로 전환(=앱이 열림)되지 않으면
+        // onFail 콜백을 실행하는 공통 함수
+        function tryOpenApp(appUrl, waitMs, onFail) {
+
+            let appOpened = false;
+
+            const handleVisibilityChange = function() {
+                if (document.hidden) {
+                    appOpened = true;
+                }
+            };
+
+            document.addEventListener("visibilitychange", handleVisibilityChange);
+
+            window.location.href = appUrl;
+
+            setTimeout(function() {
+
+                document.removeEventListener("visibilitychange", handleVisibilityChange);
+
+                if (!appOpened) {
+                    onFail();
+                }
+
+            }, waitMs);
+        }
+
+        // 카카오맵 설치 페이지로 이동 (기기별 스토어 분기)
+        function goToKakaoMapInstall() {
+
+            setStatus("설치된 지도 앱이 없어 카카오맵 설치 페이지로 이동합니다...");
+
+            const ua = navigator.userAgent || navigator.vendor || "";
+            const isIOS = /iPad|iPhone|iPod/.test(ua);
+
+            const androidUrl = "https://play.google.com/store/apps/details?id=net.daum.android.map";
+            const iosUrl = "https://apps.apple.com/app/id304608425";
+
+            setTimeout(function() {
+                window.location.href = isIOS ? iosUrl : androidUrl;
+            }, 800);
+        }
+
+        // 구글맵 앱 시도 → 실패 시 구글맵 웹으로 이동 (웹은 설치 없이도 항상 열리므로
+        // 여기서는 앱 우선 시도 후, 앱이 없으면 설치 안내로 넘어가지 않고
+        // 최종 수단으로 구글맵 웹 지도를 보여줌)
+        function tryGoogleMap(currentLat, currentLon) {
+
+            setStatus("구글맵 앱을 확인하고 있습니다...");
+
+            const googleAppUrl =
+                `comgooglemaps://?saddr=${currentLat},${currentLon}` +
+                `&daddr=${destLat},${destLon}` +
+                `&directionsmode=driving`;
+
+            tryOpenApp(googleAppUrl, 1500, function() {
+
+                // 카카오맵, 네이버맵, 구글맵 앱이 모두 없을 때 최종 안내
+                goToKakaoMapInstall();
+            });
+        }
+
+        // 네이버맵 앱 시도 → 실패 시 구글맵 단계로 이동
+        function tryNaverMap(currentLat, currentLon) {
+
+            setStatus("네이버맵 앱을 확인하고 있습니다...");
+
+            const naverAppUrl =
+                `nmap://route/car?slat=${currentLat}&slng=${currentLon}` +
+                `&sname=${encodeURIComponent("현재위치")}` +
+                `&dlat=${destLat}&dlng=${destLon}` +
+                `&dname=${encodeURIComponent(destName)}` +
+                `&appname=com.yeongjong.route`;
+
+            tryOpenApp(naverAppUrl, 1800, function() {
+                tryGoogleMap(currentLat, currentLon);
+            });
+        }
+
+        // 카카오맵 앱 시도 → 실패 시 네이버맵 단계로 이동
+        function tryKakaoMap(currentLat, currentLon) {
+
+            setStatus("카카오맵 앱을 확인하고 있습니다...");
+
+            const kakaoAppUrl =
+                `kakaomap://route?sp=${currentLat},${currentLon}` +
+                `&ep=${destLat},${destLon}` +
+                `&by=CAR`;
+
+            tryOpenApp(kakaoAppUrl, 1800, function() {
+                tryNaverMap(currentLat, currentLon);
+            });
+        }
+
+
+        function startRouting() {
+
+            if (!navigator.geolocation) {
+                alert("이 브라우저/기기에서는 위치 정보 기능을 지원하지 않습니다.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+
+                function(position) {
+
+                    const currentLat = position.coords.latitude;
+                    const currentLon = position.coords.longitude;
+
+                    // 카카오맵 → 네이버맵 → 구글맵(웹) 순서로 순차 시도
+                    tryKakaoMap(currentLat, currentLon);
+
+                },
+
+                function(error) {
+
+                    let message = "위치 정보를 가져올 수 없습니다.\n\n";
+
+                    switch(error.code) {
+
+                        case error.PERMISSION_DENIED:
+                            message += "위치 정보 사용을 허용해 주세요.";
+                            break;
+
+                        case error.POSITION_UNAVAILABLE:
+                            message += "현재 위치를 확인할 수 없습니다.";
+                            break;
+
+                        case error.TIMEOUT:
+                            message += "위치 확인 시간이 초과되었습니다.";
+                            break;
+
+                        default:
+                            message += "잠시 후 다시 시도해 주세요.";
+                    }
+
+                    alert(message);
+
+                },
+
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+
+            );
+        }
+
+        window.onload = startRouting;
+
+    </script>
+
+</body>
+</html>
